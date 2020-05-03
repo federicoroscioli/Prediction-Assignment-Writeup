@@ -1,0 +1,99 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Federico Roscioli"
+date: "5/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Prediction Assignment Writeup
+## Backgorund
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project I use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## Objective
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. It consists in a report describing how I built your model, how I used cross validation, what I think the expected out of sample error is, and why I made the choices I did.
+
+```{r, results="hide", message=FALSE}
+## preliminary activities
+library(ggplot2)
+library(caret)
+library(randomForest)
+library(scales)
+
+## loading data
+training <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv")
+```
+
+I proceed to clean the dataset.
+
+```{r}
+## descriptive
+str(training)
+
+## removing variables with more than 15000 NA
+NAs <- sapply(training, function(y) sum(length(which(is.na(y)))))
+training <- training[-which(NAs>"15000", arr.ind=T)]
+
+## removing context data
+training <- training[-c(1:7)]
+
+#as numeric for correlations
+training[, -86] <- sapply(training[, -86] , function(x) as.numeric(x))
+```
+
+I split the training dataset in training and testing.
+
+```{r}
+## creating two sets
+set.seed(6969)
+inTrain <- createDataPartition(training$classe, p=.7, list = F)
+trTrain <- training[inTrain,]
+trTest <- training[-inTrain,]
+```
+
+## Principal Component Analisys
+I do some correlation to understand if it is possible to reduce the dimensions.
+
+```{r}
+M <- abs(cor(trTrain[,-86])) #take the absolute values of all the correlation in training
+diag(M) <- 0 #set to 0 all carrelation in the diagonal
+corcols <- which(M>.8, arr.ind=T) #I want to see only highly correlated variables
+dim(corcols)[1]
+```
+
+I have `r dim(corcols)[1]` highly correlated variations, so I try to reduce them using Principal Component Analisys.
+
+```{r}
+preProc <- preProcess(trTrain[,-86], method="pca", thresh = .8) #doing the pca for two components
+trainingPC <- predict(preProc, trTrain[,-86]) #predict how the new var will look on the dataset
+testPC <- predict(preProc, trTest[,-86])
+dim(trainingPC)[2]
+plot(trainingPC[,1], trainingPC[,2], col=trTrain$classe)
+```
+
+Now the variations have been reduced to `r dim(trainingPC)[2]`.
+
+## Random Forest
+
+I will use Random Forest in order to fit my model and predict the classe.
+
+```{r}
+## random forest
+modFit <- randomForest(trTrain$classe~., data=trainingPC, do.trace=F)
+modFit
+```
+
+## Error Level
+Let's evaluate the error level of the model.
+
+```{r}
+## evaluation of the model
+error <- confusionMatrix(trTest$classe, predict(modFit, testPC))
+error$overall[1]
+```
+
+The model has a 4.21% of error.
