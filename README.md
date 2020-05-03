@@ -2,4 +2,4 @@
 Peer-graded Assignment: Prediction Assignment Writeup
 
 This is the week 4 assignment.
-https://github.com/fiodeno/Prediction-Assignment-Writeup/assignment.html
+https://fiodeno.github.io/Prediction-Assignment-Writeup/assignment.html
